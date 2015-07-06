@@ -21,7 +21,7 @@ module Patience where
   module Piles (dto : DecTotalOrder lzero lzero lzero) where
     open DecTotalOrder dto public renaming (Carrier to X)
 
-    -- Append minimum/maximum element to X
+    -- Append maximum element to X
     data X⊤ : Set where
       ⊤ : X⊤
       ⟦_⟧ : (x : X) → X⊤
