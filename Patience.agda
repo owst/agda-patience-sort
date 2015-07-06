@@ -2,7 +2,7 @@ module Patience where
   open import Relation.Binary using (DecTotalOrder; module DecTotalOrder;
     IsDecTotalOrder; module IsDecTotalOrder; Rel; module IsTotalOrder;
     module IsPartialOrder; module IsPreorder)
-  open import Relation.Binary.Core hiding (_≡_; module _≡_; refl)
+  open import Relation.Binary.Core hiding (refl)
   open import Level hiding (_⊔_ ; suc) renaming (zero to lzero)
   open import Data.Nat using (ℕ; z≤n; s≤s; suc; _+_)
     renaming (decTotalOrder to decTotalOrderℕ; _≤_ to _≤ℕ_)
@@ -15,13 +15,13 @@ module Patience where
     using (_≡_; subst; cong; sym)
   open PropEq.≡-Reasoning
 
-  -- A module that will contain a type of ordered "piles", analogous to piles of
-  -- cards in Patience (though with the stronger restriction that piles are
-  -- ordered by the top element).
+  -- A module that will contain a type of ordered "piles", analogous
+  -- to piles of cards in Patience (though with the stronger
+  -- restriction that piles are ordered by the top element).
   module Piles (dto : DecTotalOrder lzero lzero lzero) where
     open DecTotalOrder dto public renaming (Carrier to X)
 
-    -- Append maximum element to X
+    -- Append minimum/maximum element to X
     data X⊤ : Set where
       ⊤ : X⊤
       ⟦_⟧ : (x : X) → X⊤
@@ -31,19 +31,12 @@ module Patience where
       x≤⊤ : ∀ {x} → x ⟦≤⟧ ⊤
       ⟦_⟧ : ∀ {x y} → (x ≤ y) → ⟦ x ⟧ ⟦≤⟧ ⟦ y ⟧
 
-    open _⟦≤⟧_ public
-
     -- Ensure the order is transitive
     ⟦≤⟧-trans : Transitive _⟦≤⟧_
     ⟦≤⟧-trans _ x≤⊤ = x≤⊤
     ⟦≤⟧-trans ⟦ p ⟧ ⟦ q ⟧ =  ⟦ trans p q ⟧
 
-    -- Define a type of (upper-) bounded, ordered vectors
-    data OVec : X⊤ → ℕ → Set where
-      ε : OVec ⊤ 0
-      cons : ∀ {l n} → (x : X) → ⟦ x ⟧ ⟦≤⟧ l → OVec l n → OVec ⟦ x ⟧ (suc n)
-
-    -- Minimum binary operation
+    -- Minimum w.r.t. X⊤
     min : X⊤ → X⊤ → X⊤
     min ⊤ x = x
     min x ⊤ = x
@@ -51,84 +44,82 @@ module Patience where
     ... | inj₁ x≤y = ⟦ x ⟧
     ... | inj₂ y≤x = ⟦ y ⟧
 
-    -- Prove that the ordering respects min
-    ⟦≤⟧-resp-min : ∀ {x y z} → x ⟦≤⟧ y → x ⟦≤⟧ z → x ⟦≤⟧ (min y z)
-    ⟦≤⟧-resp-min {⊤} x≤⊤ x≤⊤ = x≤⊤
-    ⟦≤⟧-resp-min {⟦ x ⟧} {⊤} _ q = q
-    ⟦≤⟧-resp-min {⟦ x ⟧} {⟦ _ ⟧} {⊤} p _ = p
-    ⟦≤⟧-resp-min {⟦ x ⟧} {⟦ y ⟧} {⟦ z ⟧} p q with total y z
-    ... | inj₁ x≤y = p
-    ... | inj₂ y≤x = q
+    -- Define a type of bounded, ordered vectors
+    data OVec : X⊤ → ℕ → Set where
+      ε : OVec ⊤ 0
+      cons : ∀ {t n} → (x : X) → (⟦ x ⟧ ⟦≤⟧ t) → OVec t n → OVec ⟦ x ⟧ (suc n)
 
-    -- We can insert elements to an OVec
-    insertOVec : ∀ {l n} → (x : X) → OVec l n  → OVec (min ⟦ x ⟧ l) (suc n)
-    insertOVec x ε = cons x x≤⊤ ε
-    insertOVec x (cons l p ls) with total x l
-    ... | inj₁ x≤l = cons x ⟦ x≤l ⟧ (cons l p ls)
-    ... | inj₂ l≤x = cons l (⟦≤⟧-resp-min ⟦ l≤x ⟧ p) (insertOVec x ls)
-
-    -- Define a type of (upper-) bounded, ordered (by top elem) vectors of
+    -- Define a type of bounded, ordered (by head elem) vectors of
     -- (non-empty) OVecs.
     data Piles : X⊤ → ℕ → Set where
       ε : Piles ⊤ 0
-      consP : ∀{x n y m} → OVec ⟦ x ⟧ (suc n) → (⟦ x ⟧ ⟦≤⟧ y) → Piles y m
+      consP : ∀{x t n m} → OVec ⟦ x ⟧ (suc n) → (⟦ x ⟧ ⟦≤⟧ t) → Piles t m
         → Piles ⟦ x ⟧ (suc n + m)
 
     -- Given a proof of equivalence between two elements of ℕ, we can transform
     -- Piles with one size to the other.
-    cong-Piles : ∀ {n m l} → (n ≡ m) → Piles l n → Piles l m
-    cong-Piles {l = l'} p l = subst (Piles l') p l
+    cong-Piles : ∀ {l} {n m : ℕ} → (n ≡ m) → Piles l n  → Piles l m
+    cong-Piles {l} p fn = subst (Piles l) p fn
+
+    ⟦≤⟧-resp-min : ∀ {x y z} → x ⟦≤⟧ y → x ⟦≤⟧ z → x ⟦≤⟧ (min y z)
+    ⟦≤⟧-resp-min x≤⊤ q = q
+    ⟦≤⟧-resp-min ⟦ p ⟧ x≤⊤ = ⟦ p ⟧
+    ⟦≤⟧-resp-min {_} {⟦ y ⟧} {⟦ z ⟧} p q with total y z
+    ... | inj₁ y≤z = p
+    ... | inj₂ z≤y = q
 
     -- We can insert a single element into existing Piles...
     insertElemPiles : ∀ {l n} → (x : X) → Piles l n
       → Piles (min ⟦ x ⟧ l) (suc n)
     insertElemPiles x ε = consP (cons x x≤⊤ ε) x≤⊤ ε
-    insertElemPiles {⟦ l ⟧} x (consP {n = t} {m = s} ol p ols) with total x l
-    ... | inj₁ x≤l = consP (cons x ⟦ x≤l ⟧ ol) (⟦≤⟧-trans ⟦ x≤l ⟧ p) ols
-    ... | inj₂ l≤x = cong-Piles (+-suc (suc t) s) xInOLS
+    insertElemPiles x (consP {x′} {t} {n} {m} p x′≤t ps) with total x x′
+    ... | inj₁ x≤x′ = consP (cons x ⟦x≤x′⟧ p) (⟦≤⟧-trans ⟦x≤x′⟧ x′≤t) ps
       where
-        xInOLS : Piles ⟦ l ⟧ (suc (t + suc s))
-        xInOLS = consP ol (⟦≤⟧-resp-min ⟦ l≤x ⟧ p) (insertElemPiles x ols)
-
-    -- ...and can insert a single Pile into existing Piles.
-    insertPilePiles : ∀ {lv lp n m} → OVec ⟦ lv ⟧ (suc n) → Piles lp m
-      → Piles (min ⟦ lv ⟧ lp) (suc n + m)
-    insertPilePiles l ε = consP l x≤⊤ ε
-    insertPilePiles {lv} {⟦ lp ⟧} v (consP {n = n₁} {m = m₁} x q xs)
-      with total lv lp -- Is the head of the pile we want to add smaller than
-                       -- the head of the smallest existing pile?
-    ... | inj₁ lv≤lp  = consP v ⟦ lv≤lp ⟧ (consP x q xs)
-    ... | inj₂ lp≤lv with v
-    ... | (cons {n = n₂} .lv _ _) =
-        cong-Piles (cong suc ((permute-suc-xyz {n₁} {n₂} {m₁}))) vInPS
+        ⟦x≤x′⟧ = ⟦ x≤x′ ⟧
+    ... | inj₂ x′≤x = cong-Piles ≡ℕ (consP p (⟦≤⟧-resp-min ⟦ x′≤x ⟧ x′≤t) rec)
       where
-        vInPS : Piles ⟦ lp ⟧ (suc (n₁ + suc (n₂ + m₁)))
-        vInPS = consP x (⟦≤⟧-resp-min ⟦ lp≤lv ⟧ q) (insertPilePiles v xs)
+        rec = insertElemPiles x ps
 
-        -- A useful lemma about ℕ
-        permute-suc-xyz : ∀ {x y z} → x + suc (y + z) ≡ y + suc (x + z)
-        permute-suc-xyz {x} {y} {z} =
-          begin
-           x + suc (y + z)
-          ≡⟨ +-suc x (y + z) ⟩
-           suc (x + (y + z))
-          ≡⟨ cong suc (sym (+-assoc x y z)) ⟩
-          suc ((x + y) + z)
-          ≡⟨ cong suc (cong (λ x → x + z) (+-comm x y)) ⟩
-          suc ((y + x) + z)
-          ≡⟨ cong suc (+-assoc y x z) ⟩
-          suc (y + (x + z))
-          ≡⟨ sym (+-suc y (x + z)) ⟩
-          y + suc (x + z)
-          ∎
+        ≡ℕ : suc (n + suc m) ≡ suc (suc (n + m))
+        ≡ℕ = cong suc (+-suc n m)
+
+    -- ...and insert a Pile into Piles.
+    insertPilePiles : ∀ {x t n m} → OVec ⟦ x ⟧ (suc n)
+      → Piles t m → Piles (min ⟦ x ⟧ t) (suc n + m)
+    insertPilePiles {t = ⊤} p ε = consP p x≤⊤ ε
+    insertPilePiles {x} {⟦ t ⟧} {n₁} p (consP {n = n₂} {m = m₁} q x≤t′ qs)
+      with total x t
+    ... | inj₁ x≤t = consP p ⟦ x≤t ⟧ (consP q x≤t′ qs)
+    ... | inj₂ t≤x = cong-Piles ≡ℕ (consP q (⟦≤⟧-resp-min ⟦ t≤x ⟧ x≤t′) rec)
+      where
+       rec = insertPilePiles p qs
+
+       -- Since we build the piles in two different ways, we need to
+       -- prove that the sizes are equivalent, using this lemma about ℕ.
+       permute-suc-xyz : {x y z : ℕ} → x + suc (y + z) ≡ y + suc (x + z)
+       permute-suc-xyz {x} {y} {z} =
+         begin
+          x + suc (y + z)
+         ≡⟨ +-suc x (y + z) ⟩
+          suc (x + (y + z))
+         ≡⟨ cong suc (sym (+-assoc x y z)) ⟩
+         suc ((x + y) + z)
+         ≡⟨ cong suc (cong (λ x → x + z) (+-comm x y)) ⟩
+         suc ((y + x) + z)
+         ≡⟨ cong suc (+-assoc y x z) ⟩
+         suc (y + (x + z))
+         ≡⟨ sym (+-suc y (x + z)) ⟩
+         y + suc (x + z)
+         ∎
+
+       ≡ℕ = cong suc (permute-suc-xyz {n₂} {n₁} {m₁})
 
     -- From any non-empty Piles, we can remove the smallest element, to obtain
     -- a pair of that element, and a one-smaller Piles.
     removeOne : ∀ {l n} → Piles l (suc n) → X × (Σ X⊤ (λ l' → Piles l' n))
-    removeOne (consP {y = remainingPilesLB} (cons x _ xs) _ xss) with xs
-    ... | ε = x , remainingPilesLB , xss
-    ... | cons firstPileLB _ _ =
-      x , min ⟦ firstPileLB ⟧ remainingPilesLB , insertPilePiles xs xss
+    removeOne (consP (cons x _ xs) _ ps) with xs
+    ... | ε = x , _ , ps
+    ... | cons y q ys = x , _ , insertPilePiles (cons y q ys) ps
 
     -- By repeatedly removing a single element, we can convert Piles in a List.
     pilesToList : ∀ {l n} → Piles l n → List X
@@ -160,3 +151,18 @@ module Patience where
   xs = Pilesℕ.patienceSort (5 ∷ 4 ∷ 3 ∷ 2 ∷ 1 ∷ [])
   ys = Pilesℕ.patienceSort []
   zs = Pilesℕ.patienceSort (4 ∷ 4 ∷ 1 ∷ 5 ∷ 3 ∷ [])
+
+  sortedXs sortedYs sortedZs : List ℕ
+  sortedXs = 1 ∷ 2 ∷ 3 ∷ 4 ∷ 5 ∷ []
+  sortedYs = []
+  sortedZs = 1 ∷ 3 ∷ 4 ∷ 4 ∷ 5 ∷ []
+
+  -- And check that sorting via patience does the right thing.
+  xsOk : xs ≡ sortedXs
+  xsOk = PropEq.refl
+
+  ysOk : ys ≡ sortedYs
+  ysOk = PropEq.refl
+
+  zsOk : zs ≡ sortedZs
+  zsOk = PropEq.refl
