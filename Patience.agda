@@ -13,7 +13,7 @@ module Patience where
   open import Data.Nat.Properties.Simple using (+-suc; +-assoc; +-comm)
   open import Relation.Binary.PropositionalEquality as PropEq
     using (_≡_; subst; cong; sym)
-  open PropEq.≡-Reasoning
+  open PropEq.≡-Reasoning using (begin_; _≡⟨_⟩_; _∎)
 
   -- A module that will contain a type of ordered "piles", analogous
   -- to piles of cards in Patience (though with the stronger
